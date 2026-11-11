@@ -1,0 +1,17 @@
+**/bin
+**/obj
+**/node_modules
+**/.git
+**/.vs
+**/.vscode
+**/.idea
+**/*.user
+.env
+*.md
+Readme.txt
+docs
+e_com_app.client
+E_Com_App.AppHost
+src/clients
+src/ml
+tests
