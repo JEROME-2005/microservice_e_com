@@ -1,0 +1,55 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:            # cancel older runs of the same branch
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dotnet:
+    runs-on: ubuntu-latest   # has Docker → Testcontainers integration tests run unchanged
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      # LankaMart.Backend.slnf = every .NET project except the Angular .esproj (that one is built by the 'web' job)
+      - name: Restore
+        run: dotnet restore LankaMart.Backend.slnf
+      - name: Build (warnings are errors in CI)
+        run: dotnet build LankaMart.Backend.slnf --no-restore -c Release -p:TreatWarningsAsErrors=true
+      - name: Test
+        run: dotnet test LankaMart.Backend.slnf --no-build -c Release --logger "trx;LogFileName=results.trx"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: '**/results.trx'
+
+  # Angular client (replaces the guide's React storefront — see docs/adr/0018-angular-instead-of-react.md)
+  web:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: e_com_app.client } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: lts/*, cache: npm, cache-dependency-path: e_com_app.client/package-lock.json }
+      - run: npm ci
+      - run: npm run lint --if-present
+      - run: npm run build
+
+  # Enabled automatically once the Python recommender exists (build guide §1.15)
+  python:
+    runs-on: ubuntu-latest
+    if: ${{ hashFiles('src/ml/recommender/requirements.txt') != '' }}
+    defaults: { run: { working-directory: src/ml/recommender } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install -r requirements.txt
+      - run: pytest -q
