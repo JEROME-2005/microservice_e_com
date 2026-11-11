@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="E_Com_App.AppHost/E_Com_App.AppHost.csproj" />
+  <Project Path="e_com_app.client/e_com_app.client.esproj">
+    <Build />
+  </Project>
+  <Project Path="E_Com_App.Server/E_Com_App.Server.csproj" />
+  <Project Path="E_Com_App.ServiceDefaults/E_Com_App.ServiceDefaults.csproj" />
+</Solution>
