@@ -3,4 +3,12 @@
     <ProjectReference Include="..\..\..\shared\LankaMart.BuildingBlocks\LankaMart.BuildingBlocks.csproj" />
     <ProjectReference Include="..\..\..\shared\LankaMart.Contracts\LankaMart.Contracts.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="EFCore.NamingConventions" Version="10.*" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.*">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.*" />
+  </ItemGroup>
 </Project>
