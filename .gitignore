@@ -1,0 +1,47 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+*.log
+
+# Secrets & local config — NEVER commit these
+.env
+*.pem
+*.pfx
+keys/
+appsettings.Production.json
+appsettings.*.local.json
+
+# IDEs
+.idea/
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/extensions.json
+
+# Node / Angular
+node_modules/
+dist/
+.angular/
+coverage/
+
+# Flutter
+.dart_tool/
+.flutter-plugins*
+*.iml
+
+# Python
+__pycache__/
+.venv/
+*.pyc
+.pytest_cache/
+
+# Docker volumes created locally
+infra/data/
+
+# Original copy of the build guide (tracked as docs/build-guide.md)
+/Readme.txt
+.run/

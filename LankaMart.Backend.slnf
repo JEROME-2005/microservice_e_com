@@ -1,0 +1,18 @@
+{
+  "solution": {
+    "path": "E_Com_App.slnx",
+    "projects": [
+      "E_Com_App.AppHost/E_Com_App.AppHost.csproj",
+      "src/shared/LankaMart.BuildingBlocks/LankaMart.BuildingBlocks.csproj",
+      "src/shared/LankaMart.Contracts/LankaMart.Contracts.csproj",
+      "src/gateway/LankaMart.Gateway/LankaMart.Gateway.csproj",
+      "src/services/identity/LankaMart.Identity.Api/LankaMart.Identity.Api.csproj",
+      "src/services/users/LankaMart.Users.Api/LankaMart.Users.Api.csproj",
+      "src/services/catalog/LankaMart.Catalog.Api/LankaMart.Catalog.Api.csproj",
+      "src/services/inventory/LankaMart.Inventory.Api/LankaMart.Inventory.Api.csproj",
+      "src/services/orders/LankaMart.Orders.Api/LankaMart.Orders.Api.csproj",
+      "src/services/payments/LankaMart.Payments.Api/LankaMart.Payments.Api.csproj",
+      "tests/LankaMart.BuildingBlocks.Tests/LankaMart.BuildingBlocks.Tests.csproj"
+    ]
+  }
+}

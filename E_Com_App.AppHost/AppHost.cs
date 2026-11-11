@@ -1,5 +1,6 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-builder.AddProject<Projects.E_Com_App_Server>("e-com-app-server");
+// Infrastructure and services are added in later milestones (see docs/build-guide.md).
+builder.AddProject<Projects.LankaMart_Gateway>("gateway");
 
 builder.Build().Run();

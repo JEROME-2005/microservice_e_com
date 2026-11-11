@@ -1,0 +1,16 @@
+<Project>
+  <!-- Shared settings for every LankaMart .NET project (src/ and tests/).
+       Guarded so they don't leak into the Angular .esproj or the Aspire AppHost, which carry their own settings. -->
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.csproj' And !$(MSBuildProjectName.EndsWith('AppHost'))">
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <!-- CI passes -p:TreatWarningsAsErrors=true ; locally warnings don't block you -->
+  </PropertyGroup>
+</Project>
