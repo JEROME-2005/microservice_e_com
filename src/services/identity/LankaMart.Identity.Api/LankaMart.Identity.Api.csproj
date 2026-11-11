@@ -3,4 +3,7 @@
     <ProjectReference Include="..\..\..\shared\LankaMart.BuildingBlocks\LankaMart.BuildingBlocks.csproj" />
     <ProjectReference Include="..\..\..\shared\LankaMart.Contracts\LankaMart.Contracts.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.*" />
+  </ItemGroup>
 </Project>
