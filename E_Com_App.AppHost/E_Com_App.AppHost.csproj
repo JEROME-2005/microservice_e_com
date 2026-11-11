@@ -1,4 +1,4 @@
-<Project Sdk="Aspire.AppHost.Sdk/13.6.4">
+<Project Sdk="Aspire.AppHost.Sdk/13.6.5">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -17,6 +17,12 @@
     <ProjectReference Include="..\src\services\inventory\LankaMart.Inventory.Api\LankaMart.Inventory.Api.csproj" />
     <ProjectReference Include="..\src\services\orders\LankaMart.Orders.Api\LankaMart.Orders.Api.csproj" />
     <ProjectReference Include="..\src\services\payments\LankaMart.Payments.Api\LankaMart.Payments.Api.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.6.5" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" Version="13.6.5" />
+    <PackageReference Include="Aspire.Hosting.RabbitMQ" Version="13.6.5" />
   </ItemGroup>
 
 </Project>
