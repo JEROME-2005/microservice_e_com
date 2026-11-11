@@ -1,11 +1,11 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, signal } from '@angular/core';
 
-interface WeatherForecast {
-  date: string;
-  temperatureC: number;
-  temperatureF: number;
-  summary: string;
+/** Public category list from the Catalog service (GET /api/v1/categories through the gateway). */
+export interface Category {
+  id: string;
+  slug: string;
+  name: string;
 }
 
 @Component({
@@ -15,24 +15,21 @@ interface WeatherForecast {
   templateUrl: './app.html',
 })
 export class App implements OnInit {
-  public forecasts: WeatherForecast[] = [];
+  protected readonly title = signal('LankaMart');
+  protected readonly categories = signal<Category[] | null>(null);
+  protected readonly error = signal<string | null>(null);
 
   constructor(private http: HttpClient) {}
 
   ngOnInit() {
-    this.getForecasts();
+    this.loadCategories();
   }
 
-  getForecasts() {
-    this.http.get<WeatherForecast[]>('/weatherforecast').subscribe(
-      (result) => {
-        this.forecasts = result;
-      },
-      (error) => {
-        console.error(error);
-      }
-    );
+  loadCategories() {
+    this.error.set(null);
+    this.http.get<Category[]>('/api/v1/categories').subscribe({
+      next: (result) => this.categories.set(result),
+      error: () => this.error.set('Could not reach the LankaMart gateway. Start the backend with the Aspire AppHost, then try again.'),
+    });
   }
-
-  protected readonly title = signal('e_com_app.client');
 }
