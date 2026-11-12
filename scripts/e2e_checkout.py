@@ -10,6 +10,7 @@ Postgres via `docker exec` instead of waiting 15 minutes, then waits for the 30 
 import concurrent.futures as cf
 import os
 import random
+import re
 import subprocess
 import sys
 import time
@@ -45,7 +46,10 @@ def sql(query):
     name = PG_CONTAINER or subprocess.run(["docker", "ps", "--format", "{{.Names}}"], capture_output=True, text=True).stdout.split()
     if isinstance(name, list):
         name = next(n for n in name if n.startswith("postgres") or n == "lm-postgres")
-    out = subprocess.run(["docker", "exec", "-e", "PGPASSWORD=postgres_dev_pw", name, "psql", "-h", "localhost", "-U", "postgres", "-d", "lankamart",
+    # Phase 2: one database per service — the schema a query touches names its database (orders.* → orders_db)
+    schema = re.search(r"\b(identity|users|catalog|inventory|orders|payments|notifications)\.", query)
+    db = f"{schema.group(1)}_db" if schema else "postgres"
+    out = subprocess.run(["docker", "exec", "-e", "PGPASSWORD=postgres_dev_pw", name, "psql", "-h", "localhost", "-U", "postgres", "-d", db,
                           "-tA", "-c", query], capture_output=True, text=True)
     return out.stdout.strip()
 

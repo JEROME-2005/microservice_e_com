@@ -5,19 +5,21 @@ Creates: 1 approved seller (+ 25 published products with stock), 1 verified cust
 
     pip install requests
     python scripts/seed_demo.py            # needs the backend running in Development (Aspire AppHost or compose + dotnet run)
+    BASE=http://localhost:8080/api/v1 python scripts/seed_demo.py     # the k3d staging cluster (Features__DevTools=true)
 
 Talks ONLY to the gateway (http://localhost:5100) — exactly like a real client would, so it doubles as a smoke test.
 Differences from the guide's version: retries when the gateway's auth rate limit (10/min) answers 429, derives SKUs from
 the item's fixed position (a half-finished run can be re-run without SKU clashes) and waits for the SellerApproved event
 to reach Catalog instead of retrying only once.
 """
+import os
 import sys
 import time
 import urllib.parse
 
 import requests
 
-BASE = "http://localhost:5100/api/v1"
+BASE = os.getenv("BASE", "http://localhost:5100/api/v1")   # staging: BASE=http://localhost:8080/api/v1
 PASSWORD = "Sup3rSecret!!"
 S = requests.Session()
 

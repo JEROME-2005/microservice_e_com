@@ -18,5 +18,5 @@ Started from the Phase 1 register (build guide §1.22); updated as Phase 2 close
 | 11 | Single currency, flat delivery fee | — | open |
 | 12 | Auto-migrate on startup | races with multiple replicas | ✅ **closed** in Phase 2 — `--migrate-only` jobs, auto-migrate only in Development ([ADR-0019](adr/0019-database-per-service.md)) |
 | 13 | Gateway cannot revoke by user (only by `jti`) | suspended user keeps token ≤ 15 min | open → Phase 6 |
-| 14 | Outbox delivery lag is only checked by hand (`SELECT now() - min(enqueue_time) FROM <schema>.outbox_message`) | a stuck broker/delivery service goes unnoticed until someone looks | new → Phase 6 (alerts) |
+| 14 | Outbox delivery lag is only checked by hand (`SELECT now() - min(sent_time) FROM <schema>.outbox_message` — note: `enqueue_time` is only set for scheduled messages, so the guide's `min(enqueue_time)` is always NULL) | a stuck broker/delivery service goes unnoticed until someone looks | new → Phase 6 (alerts) |
 | 15 | Staff notifications (KYC queue, dead-letter alerts) missing | the Seller Manager must open the queue; nobody is paged about dead letters | new → Phase 3 (admin panel, role-based recipients) |
