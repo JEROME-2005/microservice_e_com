@@ -19,7 +19,10 @@ builder.Services.AddInternalClient<IInventoryClient, InventoryClient>(cfg, "Inve
 builder.Services.AddInternalClient<IPaymentsClient, PaymentsClient>(cfg, "Payments");
 builder.Services.AddScoped<CartService>();
 builder.Services.AddScoped<CheckoutService>();
-builder.Services.AddHostedService<ExpireStaleOrdersWorker>();
+if (cfg.GetValue("Workers:Enabled", true))           // Kubernetes runs the loop in a separate "worker" Deployment
+{
+    builder.Services.AddHostedService<ExpireStaleOrdersWorker>();
+}
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddPlatformPostgresHealth(cfg);
 builder.Services.AddPlatformRedis(cfg);

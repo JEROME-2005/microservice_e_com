@@ -2,6 +2,7 @@ using FluentValidation;
 using LankaMart.Inventory.Api.Data;
 using LankaMart.Inventory.Api.Domain;
 using LankaMart.Inventory.Api.Stock;
+using LankaMart.Inventory.Api.Workers;
 using Microsoft.EntityFrameworkCore;
 
 namespace LankaMart.Inventory.Api.Features;
@@ -85,5 +86,7 @@ public static class Endpoints
             await svc.ReleaseAsync(reservationId, ct);
             return Results.NoContent();
         });
+        // On-demand stock reconciliation (ops / demo): compares every quiet Redis counter with Postgres, heals drift with compare-and-set
+        i.MapPost("/reconcile", async (ReconcilerService r, CancellationToken ct) => Results.Ok(await r.RunAsync(ct)));
     }
 }

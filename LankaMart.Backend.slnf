@@ -15,7 +15,8 @@
       "src/services/notifications/LankaMart.Notifications.Api/LankaMart.Notifications.Api.csproj",
       "tests/LankaMart.BuildingBlocks.Tests/LankaMart.BuildingBlocks.Tests.csproj",
       "tests/LankaMart.Orders.Tests/LankaMart.Orders.Tests.csproj",
-      "tests/LankaMart.Notifications.Tests/LankaMart.Notifications.Tests.csproj"
+      "tests/LankaMart.Notifications.Tests/LankaMart.Notifications.Tests.csproj",
+      "tests/LankaMart.Inventory.Tests/LankaMart.Inventory.Tests.csproj"
     ]
   }
 }

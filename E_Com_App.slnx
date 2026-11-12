@@ -27,6 +27,7 @@
     <Project Path="tests/LankaMart.BuildingBlocks.Tests/LankaMart.BuildingBlocks.Tests.csproj" />
     <Project Path="tests/LankaMart.Orders.Tests/LankaMart.Orders.Tests.csproj" />
     <Project Path="tests/LankaMart.Notifications.Tests/LankaMart.Notifications.Tests.csproj" />
+    <Project Path="tests/LankaMart.Inventory.Tests/LankaMart.Inventory.Tests.csproj" />
   </Folder>
   <Folder Name="/solution-items/">
     <File Path=".editorconfig" />

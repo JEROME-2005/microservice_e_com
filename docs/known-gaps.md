@@ -10,7 +10,7 @@ Started from the Phase 1 register (build guide §1.22); updated as Phase 2 close
 | 3 | Shared internal API key | one leaked key opens all internal APIs | open → Phase 6 (mTLS / mesh) |
 | 4 | Refresh token in `localStorage` (web) | XSS could steal it | open → Phase 6 (httpOnly cookie) |
 | 5 | Mock webhook jobs held in memory | lost on restart (mock only) | n/a (real gateways retry) |
-| 6 | Redis↔Postgres stock drift only self-heals via TTL | rare mis-counts | open → Phase 2 Sprint 4 (reconciler) |
+| 6 | Redis↔Postgres stock drift only self-heals via TTL | rare mis-counts | ✅ **closed** in Phase 2 — stock reconciler with double-check + compare-and-set, ERROR log above 0.5 % drift ([ADR-0022](adr/0022-stock-reconciler.md)) |
 | 7 | KYC data (NIC, bank no.) stored in clear text | PII exposure | open → Phase 3/6 (encryption + Vault) |
 | 8 | No MFA for sellers/admins | account takeover | open → Phase 3/6 |
 | 9 | Client IP from `X-Forwarded-For` is spoofable if services are reachable directly | audit/rate-limit evasion | open → Phase 6 |

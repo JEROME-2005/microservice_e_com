@@ -15,7 +15,14 @@ builder.Services.AddDbContext<InventoryDb>(o => o
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<RedisStock>();
 builder.Services.AddScoped<ReservationService>();
-builder.Services.AddHostedService<ReservationSweeper>();
+builder.Services.AddScoped<ReconcilerService>();
+// Background loops can run in a separate Kubernetes "worker" Deployment (Workers__Enabled=false on the API pods). They are safe on
+// every replica (atomic status flips, compare-and-set), so this is about efficiency and isolation, not correctness.
+if (cfg.GetValue("Workers:Enabled", true))
+{
+    builder.Services.AddHostedService<ReservationSweeper>();
+    builder.Services.AddHostedService<StockReconciler>();
+}
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddPlatformPostgresHealth(cfg);
 builder.Services.AddPlatformRedis(cfg);

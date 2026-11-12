@@ -31,10 +31,10 @@ public sealed class ApiTests(PostgresFixture pg) : IClassFixture<PostgresFixture
         {
             s.AddAuthentication(o =>
             {
-                o.DefaultScheme = TestAuthHandler.Scheme;
-                o.DefaultAuthenticateScheme = TestAuthHandler.Scheme;
-                o.DefaultChallengeScheme = TestAuthHandler.Scheme;
-            }).AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.Scheme, _ => { });
+                o.DefaultScheme = TestAuthHandler.SchemeName;
+                o.DefaultAuthenticateScheme = TestAuthHandler.SchemeName;
+                o.DefaultChallengeScheme = TestAuthHandler.SchemeName;
+            }).AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, _ => { });
             s.AddScoped<IEmailSender>(_ => _email);
             s.AddMassTransitTestHarness();                            // in-memory transport instead of RabbitMQ
         });
