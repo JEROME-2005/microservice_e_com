@@ -1,13 +1,35 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace LankaMart.BuildingBlocks;
 
 public static class MigrationExtensions
 {
-    /// <summary>Applies pending migrations, retrying while the DB container is still starting. In production use a separate migration job (Phase 2).</summary>
+    public const string MigrateOnlyArg = "--migrate-only";
+
+    /// <summary>Call right after <c>Build()</c>. Returns true when the process should EXIT (job mode).
+    /// <list type="bullet">
+    /// <item>Development: auto-migrates at start (convenient).</item>
+    /// <item>Any environment: <c>dotnet X.dll --migrate-only</c> migrates, then the caller returns → exit code 0
+    ///       (a failure after 10 attempts throws → non-zero exit → the Kubernetes/Argo Job fails loudly and the rollout stops).</item>
+    /// <item>Elsewhere: never migrates at start (<c>Database:AutoMigrate</c> defaults to false), so N replicas can't race.</item>
+    /// </list></summary>
+    public static async Task<bool> RunMigrationsIfRequestedAsync<TContext>(this WebApplication app, string[] args) where TContext : DbContext
+    {
+        var migrateOnly = args.Contains(MigrateOnlyArg);
+        var auto = app.Configuration.GetValue("Database:AutoMigrate", app.Environment.IsDevelopment());
+        if (migrateOnly || auto)
+        {
+            await app.MigrateDatabaseAsync<TContext>();
+        }
+        return migrateOnly;
+    }
+
+    /// <summary>Applies pending migrations, retrying while the DB container is still starting (10 attempts, 3 s apart).</summary>
     public static async Task MigrateDatabaseAsync<TContext>(this WebApplication app) where TContext : DbContext
     {
         using var scope = app.Services.CreateScope();

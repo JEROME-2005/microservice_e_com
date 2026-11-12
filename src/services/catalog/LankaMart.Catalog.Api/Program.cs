@@ -17,7 +17,10 @@ builder.Services.AddPlatformAuth(cfg);
 builder.Services.AddPlatformMessaging(cfg, "catalog", x => x.AddConsumers(typeof(Program).Assembly));
 
 var app = builder.Build();
-await app.MigrateDatabaseAsync<CatalogDb>();
+if (await app.RunMigrationsIfRequestedAsync<CatalogDb>(args))
+{
+    return;   // `dotnet X.dll --migrate-only` = run migrations, then exit with code 0 (Kubernetes migration Job)
+}
 using (var scope = app.Services.CreateScope())
 {
     await CatalogSeeder.SeedAsync(scope.ServiceProvider.GetRequiredService<CatalogDb>());

@@ -42,7 +42,10 @@ builder.Services.AddPlatformAuth(cfg);
 builder.Services.AddPlatformMessaging(cfg, "identity");          // Identity only publishes; no consumers
 
 var app = builder.Build();
-await app.MigrateDatabaseAsync<IdentityDb>();
+if (await app.RunMigrationsIfRequestedAsync<IdentityDb>(args))
+{
+    return;   // `dotnet X.dll --migrate-only` = run migrations, then exit with code 0 (Kubernetes migration Job)
+}
 await IdentitySeeder.SeedAsync(app.Services, app.Environment, cfg);
 
 app.UsePlatformDefaults();

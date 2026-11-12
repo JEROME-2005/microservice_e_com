@@ -17,7 +17,10 @@ builder.Services.AddPlatformAuth(cfg);
 builder.Services.AddPlatformMessaging(cfg, "users", x => x.AddConsumers(typeof(Program).Assembly));
 
 var app = builder.Build();
-await app.MigrateDatabaseAsync<UsersDb>();
+if (await app.RunMigrationsIfRequestedAsync<UsersDb>(args))
+{
+    return;   // `dotnet X.dll --migrate-only` = run migrations, then exit with code 0 (Kubernetes migration Job)
+}
 app.UsePlatformDefaults();
 app.UseAuthentication();
 app.UseAuthorization();

@@ -11,13 +11,13 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_DB: postgres            # the default admin DB; each service gets its OWN database from infra/postgres/init/01-databases.sh
     ports: ["5433:5432"]               # host 5433: this machine already runs a native PostgreSQL on 5432 (guide §0.6.4 pitfall)
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro   # runs *.sql once, on first start only
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro   # runs 01-databases.sh once, on first start of an EMPTY volume (`docker compose down -v` to re-run)
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d postgres"]
       interval: 5s
       timeout: 3s
       retries: 20

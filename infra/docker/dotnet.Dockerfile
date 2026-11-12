@@ -24,4 +24,6 @@ RUN mkdir -p /keys && chown $APP_UID /keys
 # built into Microsoft's images: a non-root user
 USER $APP_UID
 EXPOSE 8080
-ENTRYPOINT ["sh", "-c", "exec dotnet $APP_DLL"]
+# "$@" forwards container args to the app, e.g. `--migrate-only` for the Kubernetes migration Job (Phase 2).
+# The trailing "--" becomes $0 of the inline script, so the first real argument lands in $1.
+ENTRYPOINT ["sh", "-c", "exec dotnet $APP_DLL \"$@\"", "--"]

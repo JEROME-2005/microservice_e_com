@@ -13,9 +13,12 @@ var pgUser = builder.AddParameter("postgres-user", secret: false);
 var pgPassword = builder.AddParameter("postgres-password", secret: true);
 var postgres = builder.AddPostgres("postgres", pgUser, pgPassword, port: 5433)   // 5433: a native PostgreSQL already owns 5432 on this machine
     .WithImageTag("17-alpine")
-    .WithEnvironment("POSTGRES_DB", "lankamart")          // so infra/postgres/init/*.sql runs inside the 'lankamart' database
-    .WithInitFiles("../infra/postgres/init")              // schemas + one login per service (shared with docker-compose.yml)
-    .WithDataVolume("lankamart-aspire-pgdata")
+    .WithEnvironment("POSTGRES_DB", "postgres")           // default admin DB; 01-databases.sh creates identity_db … notifications_db
+    .WithInitFiles("../infra/postgres/init")              // one DATABASE + one login per service (shared with docker-compose.yml)
+    // Phase 2 renamed the volume: init scripts only run on an EMPTY volume, so the Phase 1 one-DB volume
+    // ("lankamart-aspire-pgdata") would never get the per-service databases. Delete the old one with
+    // `docker volume rm lankamart-aspire-pgdata` once you no longer need its data.
+    .WithDataVolume("lankamart-aspire-pgdata-p2")
     .WithLifetime(ContainerLifetime.Persistent);
 
 // Plain Redis exactly like docker-compose.yml (no TLS, no password, AOF on), so services keep the guide's
