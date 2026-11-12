@@ -14,7 +14,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddPlatformPostgresHealth(cfg);
 builder.Services.AddPlatformAuth(cfg);
-builder.Services.AddPlatformMessaging(cfg, "users", x => x.AddConsumers(typeof(Program).Assembly));
+builder.Services.AddPlatformMessaging<UsersDb>(cfg, "users", x => x.AddConsumers(typeof(Program).Assembly));
 
 var app = builder.Build();
 if (await app.RunMigrationsIfRequestedAsync<UsersDb>(args))

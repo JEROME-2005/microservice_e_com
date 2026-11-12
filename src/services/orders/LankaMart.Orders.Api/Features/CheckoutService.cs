@@ -163,16 +163,17 @@ public sealed class CheckoutService(OrdersDb db, CartService carts, ICatalogClie
             await CompensateAsync(order, OrderStatus.Cancelled, "PAYMENT_UNAVAILABLE", ex);          // COMPENSATION: undo the reservation (via OrderCancelled → Inventory releases)
             throw new ServiceUnavailableException("PAYMENT_UNAVAILABLE", "Payments are temporarily unavailable. Please try again.");
         }
-        await db.Orders.Where(o => o.Id == order.Id).ExecuteUpdateAsync(s => s.SetProperty(o => o.PaymentId, intent.PaymentId), CancellationToken.None);
-
-        // ───────────── Step 6: success path — clear the cart, announce, answer ─────────────
-        await carts.ClearAsync(cartKey);
-        await bus.Publish(new OrderCreated(order.Id, order.OrderNumber, userId, order.TotalCents, now), CancellationToken.None);
+        // ───────────── Step 6: success path — store the payment id AND announce, atomically; then clear the cart ─────────────
+        order.PaymentId = intent.PaymentId;                                                                     // the order is still tracked
+        await bus.Publish(new OrderCreated(order.Id, order.OrderNumber, userId, order.TotalCents, now), CancellationToken.None);   // outbox row …
+        await db.SaveChangesAsync(CancellationToken.None);                                                      // … committed with the payment id
+        await carts.ClearAsync(cartKey);                                                                        // Redis clean-up after the durable commit
         return new CheckoutResult(order.Id, order.OrderNumber, order.TotalCents, order.Currency, intent.PaymentId, order.PaymentExpiresAt);
     }
 
     /// <summary>Compensating action: move the order to a terminal state and publish OrderCancelled so Inventory releases the stock.
-    /// If the publish is lost, the 17-minute reservation TTL + sweeper is the backstop.
+    /// Transition + event commit in ONE transaction (outbox), so "cancelled but stock never released" can't happen any more;
+    /// the 17-minute reservation TTL + sweeper stays as the last-resort backstop.
     /// Uses CancellationToken.None on purpose: a client that hangs up mid-checkout must not stop the clean-up.</summary>
     private async Task CompensateAsync(Order order, OrderStatus to, string reason, Exception? ex)
     {
@@ -181,11 +182,13 @@ public sealed class CheckoutService(OrdersDb db, CartService carts, ICatalogClie
             log.LogError(ex, "Checkout compensation for {OrderId}: {Reason}", order.Id, reason);
         }
         var now = clock.GetUtcNow();
-        var changed = await OrderTransitions.TryAsync(db, order.Id, OrderStatus.PendingPayment, to, "system", reason, now, reason);
-        if (changed)
+        await db.InTransactionAsync(async () =>
         {
-            await bus.Publish(new OrderCancelled(order.Id, order.CustomerId, reason, ToLines(order), now), CancellationToken.None);
-        }
+            if (await OrderTransitions.TryAsync(db, order.Id, OrderStatus.PendingPayment, to, "system", reason, now, reason))
+            {
+                await bus.Publish(new OrderCancelled(order.Id, order.CustomerId, reason, ToLines(order), now), CancellationToken.None);
+            }
+        }, CancellationToken.None);
     }
 
     public static IReadOnlyList<OrderLine> ToLines(Order o) => o.Items.Select(i => new OrderLine(i.VariantId, i.SellerId, i.Quantity, i.UnitPriceCents)).ToList();

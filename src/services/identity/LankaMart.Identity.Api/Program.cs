@@ -39,7 +39,7 @@ builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddPlatformPostgresHealth(cfg);
 builder.Services.AddPlatformRedis(cfg);
 builder.Services.AddPlatformAuth(cfg);
-builder.Services.AddPlatformMessaging(cfg, "identity");          // Identity only publishes; no consumers
+builder.Services.AddPlatformMessaging<IdentityDb>(cfg, "identity");          // Identity only publishes; no consumers
 
 var app = builder.Build();
 if (await app.RunMigrationsIfRequestedAsync<IdentityDb>(args))

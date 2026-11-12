@@ -158,17 +158,17 @@ public sealed class WebhookProcessor(PaymentsDb db, IPublishEndpoint bus, IOptio
             toPublish = new PaymentFailed(p.Id, p.OrderId, p.CustomerId, p.FailureCode, now);
         }
 
+        if (toPublish is not null)
+        {
+            await bus.Publish(toPublish, CancellationToken.None);                  // outbox row, committed by the SaveChanges below
+        }
         try
         {
-            await db.SaveChangesAsync(ct);
+            await db.SaveChangesAsync(ct);                                         // payment + ledger + webhook record + event: ONE transaction
         }
         catch (DbUpdateException ex) when (Db.IsUniqueViolation(ex))
         {
-            return;        // two identical webhooks raced; the unique index let exactly one through
-        }
-        if (toPublish is not null)
-        {
-            await bus.Publish(toPublish, CancellationToken.None);                  // ⚠ dual-write (DB then event) — Phase 2 outbox fixes it
+            return;        // two identical webhooks raced; the unique index let exactly one through (the loser's outbox row rolled back with it)
         }
     }
 }

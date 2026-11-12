@@ -72,8 +72,8 @@ public static class SellerEndpoints
             var now = clock.GetUtcNow();
             s.SubmitKyc(new KycData(r.BusinessName.Trim(), r.BusinessType, r.BrNumber?.Trim(), r.GoodsCategory.Trim(), r.NicNumber.ToUpperInvariant(),
                                     r.AddressLine.Trim(), r.District, r.BankName.Trim(), r.BankBranch.Trim(), r.BankAccountName.Trim(), r.BankAccountNumber), now);
-            await db.SaveChangesAsync(ct);
-            await bus.Publish(new SellerKycSubmitted(s.UserId, s.BusinessName!, now), ct);
+            await bus.Publish(new SellerKycSubmitted(s.UserId, s.BusinessName!, now), ct);   // outbox row ...
+            await db.SaveChangesAsync(ct);                                                    // ... committed with the state change (ONE transaction)
             return Results.Accepted(value: new { status = s.Status.ToString() });
         }).WithValidation<KycRequest>();
 
@@ -122,9 +122,9 @@ public static class SellerEndpoints
             var s = await Load(db, id, ct);
             var now = clock.GetUtcNow();
             s.Approve(c.User.UserId(), now);
-            await db.SaveChangesAsync(ct);
+            await bus.Publish(new SellerApproved(s.UserId, s.BusinessName ?? s.DisplayName, now), ct);   // was AFTER SaveChanges
+            await db.SaveChangesAsync(ct);                                                               // ONE transaction: state + outbox row
             log.LogInformation("AUDIT seller.approve admin={Admin} seller={Seller}", c.User.UserId(), id);
-            await bus.Publish(new SellerApproved(s.UserId, s.BusinessName ?? s.DisplayName, now), ct);
             return Results.NoContent();
         });
 
@@ -133,9 +133,9 @@ public static class SellerEndpoints
             var s = await Load(db, id, ct);
             var now = clock.GetUtcNow();
             s.Reject(c.User.UserId(), r.ReasonCode, r.Note, now);
+            await bus.Publish(new SellerRejected(s.UserId, r.ReasonCode, now), ct);
             await db.SaveChangesAsync(ct);
             log.LogInformation("AUDIT seller.reject admin={Admin} seller={Seller} code={Code}", c.User.UserId(), id, r.ReasonCode);
-            await bus.Publish(new SellerRejected(s.UserId, r.ReasonCode, now), ct);
             return Results.NoContent();
         }).WithValidation<RejectRequest>();
 
@@ -144,9 +144,9 @@ public static class SellerEndpoints
             var s = await Load(db, id, ct);
             var now = clock.GetUtcNow();
             s.Suspend(c.User.UserId(), now);
+            await bus.Publish(new SellerSuspended(s.UserId, r.Reason, now), ct);
             await db.SaveChangesAsync(ct);
             log.LogInformation("AUDIT seller.suspend admin={Admin} seller={Seller} reason={Reason}", c.User.UserId(), id, r.Reason);
-            await bus.Publish(new SellerSuspended(s.UserId, r.Reason, now), ct);
             return Results.NoContent();
         }).WithValidation<SuspendRequest>();
 
@@ -155,9 +155,9 @@ public static class SellerEndpoints
             var s = await Load(db, id, ct);
             var now = clock.GetUtcNow();
             s.Reinstate(c.User.UserId(), now);
+            await bus.Publish(new SellerReinstated(s.UserId, now), ct);
             await db.SaveChangesAsync(ct);
             log.LogInformation("AUDIT seller.reinstate admin={Admin} seller={Seller}", c.User.UserId(), id);
-            await bus.Publish(new SellerReinstated(s.UserId, now), ct);
             return Results.NoContent();
         });
     }

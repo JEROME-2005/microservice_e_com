@@ -34,5 +34,11 @@ public class PaymentsDb(DbContextOptions<PaymentsDb> options) : DbContext(option
             e.ToTable("webhook_events");
             e.HasIndex(x => new { x.Gateway, x.GatewayEventId }).IsUnique();         // dedupe: a re-sent webhook can't be processed twice
         });
+
+        // Transactional outbox/inbox tables (MassTransit EF): outbox_message = events waiting to be sent, outbox_state = delivery
+        // bookkeeping, inbox_state = processed message ids (docs/adr/0020-outbox-inbox.md)
+        b.AddInboxStateEntity();
+        b.AddOutboxMessageEntity();
+        b.AddOutboxStateEntity();
     }
 }

@@ -29,5 +29,11 @@ public class IdentityDb(DbContextOptions<IdentityDb> options) : IdentityDbContex
             e.HasIndex(x => x.UserId);
         });
         builder.Entity<AppUser>().HasIndex(u => u.PhoneNumber).IsUnique().HasFilter("phone_number IS NOT NULL");   // one account per phone
+
+        // Transactional outbox/inbox tables (MassTransit EF): outbox_message = events waiting to be sent, outbox_state = delivery
+        // bookkeeping, inbox_state = processed message ids (docs/adr/0020-outbox-inbox.md)
+        builder.AddInboxStateEntity();
+        builder.AddOutboxMessageEntity();
+        builder.AddOutboxStateEntity();
     }
 }

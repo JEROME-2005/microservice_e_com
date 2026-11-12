@@ -57,5 +57,11 @@ public class CatalogDb(DbContextOptions<CatalogDb> options) : DbContext(options)
             e.ToTable("known_sellers");
             e.HasKey(x => x.SellerId);
         });
+
+        // Transactional outbox/inbox tables (MassTransit EF): outbox_message = events waiting to be sent, outbox_state = delivery
+        // bookkeeping, inbox_state = processed message ids (docs/adr/0020-outbox-inbox.md)
+        b.AddInboxStateEntity();
+        b.AddOutboxMessageEntity();
+        b.AddOutboxStateEntity();
     }
 }

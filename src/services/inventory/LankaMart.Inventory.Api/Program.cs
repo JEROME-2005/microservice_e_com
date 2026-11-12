@@ -20,7 +20,7 @@ builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddPlatformPostgresHealth(cfg);
 builder.Services.AddPlatformRedis(cfg);
 builder.Services.AddPlatformAuth(cfg);
-builder.Services.AddPlatformMessaging(cfg, "inventory", x => x.AddConsumers(typeof(Program).Assembly));
+builder.Services.AddPlatformMessaging<InventoryDb>(cfg, "inventory", x => x.AddConsumers(typeof(Program).Assembly));
 
 var app = builder.Build();
 if (await app.RunMigrationsIfRequestedAsync<InventoryDb>(args))

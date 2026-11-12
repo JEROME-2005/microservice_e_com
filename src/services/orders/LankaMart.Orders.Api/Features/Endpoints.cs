@@ -117,11 +117,20 @@ public static class Endpoints
             }
             var now = clock.GetUtcNow();
             // Phase 1: customers can cancel only BEFORE paying. Cancelling a paid order needs the refund flow (Phase 5).
-            if (!await OrderTransitions.TryAsync(db, o.Id, OrderStatus.PendingPayment, OrderStatus.Cancelled, "customer", "Cancelled by customer", now, "CUSTOMER_CANCELLED"))
+            // Transition + OrderCancelled (→ Inventory releases the stock) commit in ONE transaction.
+            var cancelled = await db.InTransactionAsync(async () =>
+            {
+                if (!await OrderTransitions.TryAsync(db, o.Id, OrderStatus.PendingPayment, OrderStatus.Cancelled, "customer", "Cancelled by customer", now, "CUSTOMER_CANCELLED"))
+                {
+                    return false;
+                }
+                await bus.Publish(new OrderCancelled(o.Id, o.CustomerId, "CUSTOMER_CANCELLED", CheckoutService.ToLines(o), now), CancellationToken.None);
+                return true;
+            }, CancellationToken.None);
+            if (!cancelled)
             {
                 throw new BusinessRuleException("CANNOT_CANCEL", "Only orders awaiting payment can be cancelled right now.");
             }
-            await bus.Publish(new OrderCancelled(o.Id, o.CustomerId, "CUSTOMER_CANCELLED", CheckoutService.ToLines(o), now), CancellationToken.None);
             return Results.NoContent();
         });
 
@@ -133,11 +142,19 @@ public static class Endpoints
                 var o = await db.Orders.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
                 var next = OrderStateMachine.Next(o.Status) ?? throw new BusinessRuleException("NO_NEXT_STATE", $"No next step from {o.Status}.");
                 var now = clock.GetUtcNow();
-                if (!await OrderTransitions.TryAsync(db, id, o.Status, next, "dev-simulator", "Simulated logistics step", now))
+                var moved = await db.InTransactionAsync(async () =>
+                {
+                    if (!await OrderTransitions.TryAsync(db, id, o.Status, next, "dev-simulator", "Simulated logistics step", now))
+                    {
+                        return false;
+                    }
+                    await bus.Publish(new OrderStatusChanged(id, o.CustomerId, o.Status.ToString(), next.ToString(), now), ct);
+                    return true;
+                }, ct);
+                if (!moved)
                 {
                     throw new ConflictException("CONCURRENT_UPDATE", "The order changed meanwhile; try again.");
                 }
-                await bus.Publish(new OrderStatusChanged(id, o.CustomerId, o.Status.ToString(), next.ToString(), now), ct);
                 return Results.Ok(new { status = next.ToString() });
             }).WithTags("Dev").RequireAuthorization(Policies.SuperAdmin);
         }

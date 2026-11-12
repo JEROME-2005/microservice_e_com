@@ -31,5 +31,11 @@ public class UsersDb(DbContextOptions<UsersDb> options) : DbContext(options)
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
             e.HasIndex(x => x.Status);
         });
+
+        // Transactional outbox/inbox tables (MassTransit EF): outbox_message = events waiting to be sent, outbox_state = delivery
+        // bookkeeping, inbox_state = processed message ids (docs/adr/0020-outbox-inbox.md)
+        modelBuilder.AddInboxStateEntity();
+        modelBuilder.AddOutboxMessageEntity();
+        modelBuilder.AddOutboxStateEntity();
     }
 }

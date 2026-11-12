@@ -86,31 +86,36 @@ public sealed class AuthService(UserManager<AppUser> users, IdentityDb db, Token
         }
 
         var user = new AppUser { Id = Guid.CreateVersion7(), UserName = email, Email = email, PhoneNumber = phone, FullName = r.FullName.Trim(), Language = r.Language };
-        IdentityResult created;
-        try
-        {
-            created = await users.CreateAsync(user, r.Password);       // hashes the password (PBKDF2) — we never see/store it in clear
-        }
-        catch (DbUpdateException)                                       // two registrations racing for the same phone → unique index is the safety net
-        {
-            throw new ConflictException("PHONE_TAKEN", "An account with this phone number already exists.");
-        }
-        if (!created.Succeeded)
-        {
-            if (created.Errors.Any(e => e.Code is "DuplicateEmail" or "DuplicateUserName"))
-            {
-                throw new ConflictException("EMAIL_TAKEN", "An account with this email already exists.");
-            }
-            throw new BusinessRuleException("WEAK_PASSWORD", string.Join(" ", created.Errors.Select(e => e.Description)));
-        }
-        await users.AddToRoleAsync(user, r.Role);
 
+        // ONE transaction: user row + role + UserRegistered outbox row commit together, or not at all (UserManager saves internally,
+        // so a plain "SaveChanges last" isn't enough — docs/adr/0020-outbox-inbox.md). Any exception below rolls everything back.
+        await db.InTransactionAsync(async () =>
+        {
+            IdentityResult created;
+            try
+            {
+                created = await users.CreateAsync(user, r.Password);   // hashes the password (PBKDF2) — we never see/store it in clear
+            }
+            catch (DbUpdateException)                                   // two registrations racing for the same phone → unique index is the safety net
+            {
+                throw new ConflictException("PHONE_TAKEN", "An account with this phone number already exists.");
+            }
+            if (!created.Succeeded)
+            {
+                if (created.Errors.Any(e => e.Code is "DuplicateEmail" or "DuplicateUserName"))
+                {
+                    throw new ConflictException("EMAIL_TAKEN", "An account with this email already exists.");
+                }
+                throw new BusinessRuleException("WEAK_PASSWORD", string.Join(" ", created.Errors.Select(e => e.Description)));
+            }
+            await users.AddToRoleAsync(user, r.Role);
+            await bus.Publish(new UserRegistered(user.Id, email, phone, user.FullName, r.Role, r.Language, clock.GetUtcNow()), ct);   // → outbox row, same transaction
+        }, ct);
+
+        // AFTER the commit: Redis and the Notification service are not part of the DB transaction. A user who exists but
+        // didn't get a code can simply press "resend".
         await otp.SendAsync(user.Id, "email", email);
         await otp.SendAsync(user.Id, "phone", phone);
-
-        // ⚠ DUAL WRITE: user is saved, event is published separately. If we crash between, the Users service never creates the profile.
-        //   Phase 2's Transactional Outbox removes this risk. For now a crash here is rare and visible in logs.
-        await bus.Publish(new UserRegistered(user.Id, email, phone, user.FullName, r.Role, r.Language, clock.GetUtcNow()), ct);
     }
 
     public async Task VerifyContactAsync(VerifyOtpRequest r, CancellationToken ct)
@@ -130,8 +135,11 @@ public sealed class AuthService(UserManager<AppUser> users, IdentityDb db, Token
         {
             user.PhoneNumberConfirmed = true;
         }
-        await users.UpdateAsync(user);
-        await bus.Publish(new UserContactVerified(user.Id, r.Channel, clock.GetUtcNow()), ct);
+        await db.InTransactionAsync(async () =>
+        {
+            await users.UpdateAsync(user);
+            await bus.Publish(new UserContactVerified(user.Id, r.Channel, clock.GetUtcNow()), ct);
+        }, ct);
     }
 
     public async Task ResendOtpAsync(ResendOtpRequest r)
@@ -156,8 +164,12 @@ public sealed class AuthService(UserManager<AppUser> users, IdentityDb db, Token
 
         if (!await users.CheckPasswordAsync(user, r.Password))
         {
-            await users.AccessFailedAsync(user);                        // 5 failures → locked 10 minutes (configured in Program.cs)
-            await bus.Publish(new UserLoginFailed(user.Id, user.Email!, ip, clock.GetUtcNow()), ct);
+            await db.InTransactionAsync(async () =>
+            {
+                await users.AccessFailedAsync(user);                    // 5 failures → locked 10 minutes (configured in Program.cs)
+                await bus.Publish(new UserLoginFailed(user.Id, user.Email!, ip, clock.GetUtcNow()), ct);
+            }, ct);
+            // throw only AFTER the commit — throwing inside the transaction would roll back the failure counter too
             if (await users.IsLockedOutAsync(user))
             {
                 throw new TooManyRequestsException("ACCOUNT_LOCKED", "Too many failed attempts. Try again in a few minutes.");

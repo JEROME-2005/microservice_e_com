@@ -14,7 +14,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddPlatformPostgresHealth(cfg);
 builder.Services.AddPlatformAuth(cfg);
-builder.Services.AddPlatformMessaging(cfg, "catalog", x => x.AddConsumers(typeof(Program).Assembly));
+builder.Services.AddPlatformMessaging<CatalogDb>(cfg, "catalog", x => x.AddConsumers(typeof(Program).Assembly));
 
 var app = builder.Build();
 if (await app.RunMigrationsIfRequestedAsync<CatalogDb>(args))

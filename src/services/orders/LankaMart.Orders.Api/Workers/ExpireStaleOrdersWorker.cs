@@ -29,18 +29,27 @@ public sealed class ExpireStaleOrdersWorker(IServiceScopeFactory scopes, TimePro
     public static async Task<int> ExpireOnceAsync(IServiceProvider sp, TimeProvider clock, ILogger log, CancellationToken ct)
     {
         var db = sp.GetRequiredService<OrdersDb>();
-        var bus = sp.GetRequiredService<IPublishEndpoint>();
+        var bus = sp.GetRequiredService<IPublishEndpoint>();     // resolved from the SAME scope as the DbContext → its outbox rows land in this db
         var now = clock.GetUtcNow();
         var stale = await db.Orders.AsNoTracking().Include(o => o.Items)
             .Where(o => o.Status == OrderStatus.PendingPayment && o.PaymentExpiresAt < now).Take(100).ToListAsync(ct);
         var expired = 0;
         foreach (var o in stale)
         {
-            if (!await OrderTransitions.TryAsync(db, o.Id, OrderStatus.PendingPayment, OrderStatus.Expired, "system", "Payment window elapsed", now, "PAYMENT_TIMEOUT"))
+            // transition + OrderCancelled in ONE transaction: an expired order always releases its stock
+            var changed = await db.InTransactionAsync(async () =>
+            {
+                if (!await OrderTransitions.TryAsync(db, o.Id, OrderStatus.PendingPayment, OrderStatus.Expired, "system", "Payment window elapsed", now, "PAYMENT_TIMEOUT"))
+                {
+                    return false;
+                }
+                await bus.Publish(new OrderCancelled(o.Id, o.CustomerId, "PAYMENT_TIMEOUT", CheckoutService.ToLines(o), now), ct);
+                return true;
+            }, ct);
+            if (!changed)
             {
                 continue;
             }
-            await bus.Publish(new OrderCancelled(o.Id, o.CustomerId, "PAYMENT_TIMEOUT", CheckoutService.ToLines(o), now), ct);
             log.LogInformation("Order {OrderNumber} expired", o.OrderNumber);
             expired++;
         }

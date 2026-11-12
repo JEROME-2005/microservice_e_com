@@ -66,7 +66,8 @@ public sealed class ReservationService(InventoryDb db, RedisStock redis, IPublis
                 res.Lines.Add(new ReservationLine { ReservationId = res.Id, VariantId = variantId, Quantity = qty });
             }
             db.Reservations.Add(res);
-            await db.SaveChangesAsync(ct);
+            await PublishLowStockAsync(ids, ct);          // outbox rows (reads the UPDATED quantities inside this transaction) …
+            await db.SaveChangesAsync(ct);                // … committed together with the reservation: no lost alert, no alert for a rolled-back reservation
             await tx.CommitAsync(ct);
         }
         catch (DbUpdateException e) when (e.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
@@ -80,19 +81,20 @@ public sealed class ReservationService(InventoryDb db, RedisStock redis, IPublis
             await redis.AddBackAsync(lines);
             throw;
         }
-        // KNOWN GAP: a crash between steps 2 and 3 leaks Redis stock until the Phase-2 reconciler corrects drift. Rare, visible, self-healing.
-
-        await PublishLowStockAsync(ids, ct);
+        // A crash between steps 2 and 3 leaks Redis stock; the StockReconciler (Workers/StockReconciler.cs) detects and heals that drift.
         return new(true, []);
     }
 
-    /// <summary>Called when OrderPaid arrives. Idempotent: only a RESERVED reservation transitions.</summary>
+    /// <summary>Called when OrderPaid arrives (consumer) or via the internal endpoint. Idempotent: only a RESERVED reservation transitions.
+    /// Every Publish is followed by SaveChanges on the same DbContext — inside a consumer that joins MassTransit's transaction,
+    /// from the HTTP endpoint it commits the outbox row itself.</summary>
     public async Task ConfirmAsync(Guid reservationId, CancellationToken ct)
     {
         var res = await db.Reservations.AsNoTracking().Include(r => r.Lines).SingleOrDefaultAsync(r => r.Id == reservationId, ct);
         if (res is null)
         {
             await bus.Publish(new ReservationConfirmFailed(reservationId, "RESERVATION_NOT_FOUND", clock.GetUtcNow()), ct);
+            await db.SaveChangesAsync(ct);
             return;
         }
         if (res.Status == ReservationStatus.Confirmed)
@@ -103,24 +105,28 @@ public sealed class ReservationService(InventoryDb db, RedisStock redis, IPublis
         {
             // The TTL is longer than the payment window so this is rare. If stock is gone, Orders must refund (Phase 5).
             await bus.Publish(new ReservationConfirmFailed(reservationId, "RESERVATION_EXPIRED", clock.GetUtcNow()), ct);
+            await db.SaveChangesAsync(ct);
             return;
         }
         var now = clock.GetUtcNow();
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-        var flipped = await db.Reservations.Where(r => r.Id == reservationId && r.Status == ReservationStatus.Reserved)
-            .ExecuteUpdateAsync(s => s.SetProperty(r => r.Status, ReservationStatus.Confirmed), ct);        // atomic claim
-        if (flipped == 0)
+        // InTransactionAsync, not BeginTransaction: inside a consumer MassTransit's consumer outbox already owns the transaction
+        // (a second BeginTransaction would throw); from the internal endpoint it opens and commits its own.
+        await db.InTransactionAsync(async () =>
         {
-            return;
-        }
-        foreach (var l in res.Lines)
-        {
-            await db.Items.Where(i => i.VariantId == l.VariantId)
-                .ExecuteUpdateAsync(s => s.SetProperty(i => i.QtyOnHand, i => i.QtyOnHand - l.Quantity)
-                                          .SetProperty(i => i.QtyReserved, i => i.QtyReserved - l.Quantity)
-                                          .SetProperty(i => i.UpdatedAt, now), ct);
-        }
-        await tx.CommitAsync(ct);
+            var flipped = await db.Reservations.Where(r => r.Id == reservationId && r.Status == ReservationStatus.Reserved)
+                .ExecuteUpdateAsync(s => s.SetProperty(r => r.Status, ReservationStatus.Confirmed), ct);    // atomic claim
+            if (flipped == 0)
+            {
+                return;
+            }
+            foreach (var l in res.Lines)
+            {
+                await db.Items.Where(i => i.VariantId == l.VariantId)
+                    .ExecuteUpdateAsync(s => s.SetProperty(i => i.QtyOnHand, i => i.QtyOnHand - l.Quantity)
+                                              .SetProperty(i => i.QtyReserved, i => i.QtyReserved - l.Quantity)
+                                              .SetProperty(i => i.UpdatedAt, now), ct);
+            }
+        }, ct);
         // Redis counter already reflects the sale (decremented at reserve time) → nothing to do there.
     }
 
@@ -133,21 +139,27 @@ public sealed class ReservationService(InventoryDb db, RedisStock redis, IPublis
             return;
         }
         var now = clock.GetUtcNow();
-        await using (var tx = await db.Database.BeginTransactionAsync(ct))
+        var released = await db.InTransactionAsync(async () =>      // joins the consumer's transaction when called from OrderCancelledConsumer
         {
             var flipped = await db.Reservations.Where(r => r.Id == reservationId && r.Status == ReservationStatus.Reserved)
                 .ExecuteUpdateAsync(s => s.SetProperty(r => r.Status, ReservationStatus.Released), ct);
             if (flipped == 0)
             {
-                return;                                   // already confirmed/released → someone else won the race
+                return false;                             // already confirmed/released → someone else won the race
             }
             foreach (var l in res.Lines)
             {
                 await db.Items.Where(i => i.VariantId == l.VariantId)
                     .ExecuteUpdateAsync(s => s.SetProperty(i => i.QtyReserved, i => i.QtyReserved - l.Quantity).SetProperty(i => i.UpdatedAt, now), ct);
             }
-            await tx.CommitAsync(ct);
+            return true;
+        }, ct);
+        if (!released)
+        {
+            return;
         }
+        // Redis is not part of the DB transaction. Inside a consumer the commit happens after this method returns; in the rare case
+        // that commit then fails, the retry adds the units back a second time — the StockReconciler detects and heals that drift.
         await redis.AddBackAsync(res.Lines.Select(l => (l.VariantId, l.Quantity)));
         log.LogInformation("Released reservation {ReservationId}", reservationId);
     }

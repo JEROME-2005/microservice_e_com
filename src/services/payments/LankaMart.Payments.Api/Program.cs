@@ -24,7 +24,7 @@ builder.Services.AddScoped<WebhookProcessor>();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddPlatformPostgresHealth(cfg);
 builder.Services.AddPlatformAuth(cfg);
-builder.Services.AddPlatformMessaging(cfg, "payments", x => x.AddConsumers(typeof(Program).Assembly));
+builder.Services.AddPlatformMessaging<PaymentsDb>(cfg, "payments", x => x.AddConsumers(typeof(Program).Assembly));
 
 var app = builder.Build();
 if (await app.RunMigrationsIfRequestedAsync<PaymentsDb>(args))

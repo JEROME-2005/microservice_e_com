@@ -74,17 +74,17 @@ public static class SellerEndpoints
                 throw new ConflictException("SKU_TAKEN", "One of your SKUs is already used.");
             }
             db.Products.Add(p);
-            try
-            {
-                await db.SaveChangesAsync(ct);
-            }
-            catch (DbUpdateException e) when (IsUniqueViolation(e))     // the unique index (seller_id, sku) is the real guarantee
-            {
-                throw new ConflictException("SKU_TAKEN", "One of your SKUs is already used.");
-            }
             foreach (var v in p.Variants)
             {
-                await bus.Publish(new VariantCreated(v.Id, p.Id, sid, v.Sku, now), ct);    // Inventory creates the stock row
+                await bus.Publish(new VariantCreated(v.Id, p.Id, sid, v.Sku, now), ct);    // Inventory creates the stock row (outbox row, same transaction)
+            }
+            try
+            {
+                await db.SaveChangesAsync(ct);                                             // product + variants + outbox rows: ONE transaction
+            }
+            catch (DbUpdateException e) when (IsUniqueViolation(e))     // the unique index (seller_id, sku) is the real guarantee; the events roll back with it
+            {
+                throw new ConflictException("SKU_TAKEN", "One of your SKUs is already used.");
             }
             return Results.Created($"/api/v1/seller/products/{p.Id}", new { p.Id, status = p.Status.ToString(), variantIds = p.Variants.Select(v => v.Id) });
         }).WithValidation<CreateProductRequest>();
@@ -130,6 +130,7 @@ public static class SellerEndpoints
             }
             var nv = new ProductVariant { Id = Guid.CreateVersion7(), ProductId = id, SellerId = sid, Sku = v.Sku, AttributesJson = JsonSerializer.Serialize(v.Attributes ?? []), PriceCents = v.PriceCents, CompareAtPriceCents = v.CompareAtPriceCents };
             db.Variants.Add(nv);
+            await bus.Publish(new VariantCreated(nv.Id, id, sid, nv.Sku, clock.GetUtcNow()), ct);
             try
             {
                 await db.SaveChangesAsync(ct);
@@ -138,7 +139,6 @@ public static class SellerEndpoints
             {
                 throw new ConflictException("SKU_TAKEN", "SKU already used.");
             }
-            await bus.Publish(new VariantCreated(nv.Id, id, sid, nv.Sku, clock.GetUtcNow()), ct);
             return Results.Created($"/api/v1/seller/products/{id}/variants/{nv.Id}", new { nv.Id });
         }).WithValidation<VariantDto>();
 
@@ -169,8 +169,8 @@ public static class SellerEndpoints
             // Phase 3 flips this switch: Draft → PendingModeration → (Seller Manager approves) → Active.
             p.Status = cfg.GetValue("Catalog:ModerationEnabled", false) ? ProductStatus.PendingModeration : ProductStatus.Active;
             p.UpdatedAt = clock.GetUtcNow();
-            await db.SaveChangesAsync(ct);
             await bus.Publish(new ProductStatusChanged(p.Id, sid, old.ToString(), p.Status.ToString(), p.UpdatedAt), ct);
+            await db.SaveChangesAsync(ct);
             return Results.Ok(new { status = p.Status.ToString() });
         });
 
@@ -181,8 +181,8 @@ public static class SellerEndpoints
             var old = p.Status;
             p.Status = ProductStatus.Archived;
             p.UpdatedAt = clock.GetUtcNow();
-            await db.SaveChangesAsync(ct);
             await bus.Publish(new ProductStatusChanged(p.Id, sid, old.ToString(), "Archived", p.UpdatedAt), ct);
+            await db.SaveChangesAsync(ct);
             return Results.NoContent();
         });
     }

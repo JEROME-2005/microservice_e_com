@@ -39,5 +39,11 @@ public class InventoryDb(DbContextOptions<InventoryDb> options) : DbContext(opti
             e.ToTable("stock_movements");
             e.HasIndex(x => x.VariantId);
         });
+
+        // Transactional outbox/inbox tables (MassTransit EF): outbox_message = events waiting to be sent, outbox_state = delivery
+        // bookkeeping, inbox_state = processed message ids (docs/adr/0020-outbox-inbox.md)
+        b.AddInboxStateEntity();
+        b.AddOutboxMessageEntity();
+        b.AddOutboxStateEntity();
     }
 }
