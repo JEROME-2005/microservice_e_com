@@ -42,6 +42,6 @@ __pycache__/
 # Docker volumes created locally
 infra/data/
 
-# Original copy of the build guide (tracked as docs/build-guide.md)
+# Local copy of the current build guide (tracked as docs/build-guide.md and docs/build-guide-phase-2.md)
 /Readme.txt
 .run/
