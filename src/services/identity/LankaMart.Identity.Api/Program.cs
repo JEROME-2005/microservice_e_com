@@ -30,8 +30,25 @@ builder.Services.Configure<JwtIssuingOptions>(cfg.GetSection("Jwt"));
 builder.Services.Configure<AuthOptions>(cfg.GetSection("Auth"));
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<RsaKeyProvider>();
-builder.Services.AddSingleton<IOtpSender, LogOtpSender>();
-builder.Services.AddSingleton<OtpService>();
+if (cfg["Otp:Sender"] == "notification")
+{
+    // Real delivery through the Notification service. Short resilience budget: the user is waiting, and a failure is non-fatal
+    // (OtpService logs it and lets the user resend) — the default ~30 s retry budget would make registration hang.
+    builder.Services.AddInternalClient<INotificationsClient, NotificationsClient>(cfg, "Notifications", r =>
+    {
+        r.Retry.MaxRetryAttempts = 1;
+        r.Retry.Delay = TimeSpan.FromMilliseconds(300);
+        r.AttemptTimeout.Timeout = TimeSpan.FromSeconds(4);
+        r.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(10);
+        r.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(9);
+    });
+    builder.Services.AddScoped<IOtpSender, NotificationOtpSender>();
+}
+else
+{
+    builder.Services.AddScoped<IOtpSender, LogOtpSender>();
+}
+builder.Services.AddScoped<OtpService>();            // was Singleton — it now depends on a scoped sender
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();

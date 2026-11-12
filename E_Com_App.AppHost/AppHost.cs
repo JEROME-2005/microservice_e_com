@@ -1,6 +1,6 @@
 // LankaMart dev runner (replaces scripts/dev.py from the build guide — see docs/adr/0017-aspire-dev-runner.md).
 //
-// Ports are FIXED to the guide's Appendix A (gateway 5100, identity 5101 … payments 5106, PG 5433 (host; 5432 is taken by a native PostgreSQL), Redis 6379, RabbitMQ 5672/15672)
+// Ports are FIXED to the guide's Appendix A (gateway 5100, identity 5101 … payments 5106, notifications 5107, Mailpit 1025/8025, PG 5433 (host; 5432 is taken by a native PostgreSQL), Redis 6379, RabbitMQ 5672/15672)
 // and endpoints are NOT proxied, so every appsettings.Development.json, the JWT Authority and the curl checks in
 // docs/build-guide.md work the same with or without Aspire.
 //
@@ -36,6 +36,12 @@ var rabbitmq = builder.AddRabbitMQ("rabbitmq", rabbitUser, rabbitPassword, port:
     .WithDataVolume("lankamart-aspire-rabbitdata")
     .WithLifetime(ContainerLifetime.Persistent);
 
+// Mailpit: a local fake SMTP server with a web inbox (http://localhost:8025). The Notification service sends every email here.
+var mailpit = builder.AddContainer("mailpit", "axllent/mailpit", "latest")
+    .WithEndpoint(port: 1025, targetPort: 1025, name: "smtp", scheme: "tcp", isProxied: false)
+    .WithHttpEndpoint(port: 8025, targetPort: 8025, name: "ui", isProxied: false)
+    .WithLifetime(ContainerLifetime.Persistent);
+
 // ───────────── .NET services ─────────────
 IResourceBuilder<ProjectResource> Service<TProject>(string name, bool usesRedis = false, bool usesDb = true)
     where TProject : IProjectMetadata, new()
@@ -61,10 +67,11 @@ var catalog = Service<Projects.LankaMart_Catalog_Api>("catalog");
 var inventory = Service<Projects.LankaMart_Inventory_Api>("inventory", usesRedis: true);
 var orders = Service<Projects.LankaMart_Orders_Api>("orders", usesRedis: true);
 var payments = Service<Projects.LankaMart_Payments_Api>("payments");
+var notifications = Service<Projects.LankaMart_Notifications_Api>("notifications").WaitFor(mailpit);   // :5107; Identity calls it for OTPs
 
 var gateway = Service<Projects.LankaMart_Gateway>("gateway", usesRedis: true, usesDb: false)
     .WaitFor(identity)
-    .WithReference(users).WithReference(catalog).WithReference(inventory).WithReference(orders).WithReference(payments)
+    .WithReference(users).WithReference(catalog).WithReference(inventory).WithReference(orders).WithReference(payments).WithReference(notifications)
     .WithExternalHttpEndpoints();
 
 // ───────────── Angular client (storefront comes in a later phase) ─────────────

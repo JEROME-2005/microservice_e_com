@@ -1,21 +1,21 @@
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { App } from './app';
+import { HomePage } from './home-page';
 
-describe('App', () => {
-  let component: App;
-  let fixture: ComponentFixture<App>;
+describe('HomePage', () => {
+  let component: HomePage;
+  let fixture: ComponentFixture<HomePage>;
   let httpMock: HttpTestingController;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [App],
+      declarations: [HomePage],
       imports: [HttpClientTestingModule]
     }).compileComponents();
   });
 
   beforeEach(() => {
-    fixture = TestBed.createComponent(App);
+    fixture = TestBed.createComponent(HomePage);
     component = fixture.componentInstance;
     httpMock = TestBed.inject(HttpTestingController);
   });
@@ -24,7 +24,7 @@ describe('App', () => {
     httpMock.verify();
   });
 
-  it('should create the app', () => {
+  it('should create the home page', () => {
     expect(component).toBeTruthy();
   });
 

@@ -1,0 +1,46 @@
+<h1>Notification settings</h1>
+
+@if (!auth.isSignedIn()) {
+  <p>Sign in to choose how LankaMart contacts you.</p>
+  <a routerLink="/sign-in" [queryParams]="{ returnUrl: '/account/notifications' }">Sign in</a>
+} @else if (loadError()) {
+  <p role="alert">We couldn't load your settings.</p>
+  <button type="button" (click)="load()">Try again</button>
+} @else if (prefs(); as list) {
+  <p class="lead">Choose where each kind of message reaches you. SMS costs money, so it's off unless you turn it on.</p>
+
+  <table>
+    <caption class="visually-hidden">Notification channels per category</caption>
+    <thead>
+      <tr>
+        <th scope="col">Category</th>
+        @for (c of channels; track c.key) {
+          <th scope="col">{{ c.label }}</th>
+        }
+      </tr>
+    </thead>
+    <tbody>
+      @for (p of list; track p.category) {
+        <tr>
+          <th scope="row">{{ categoryLabels[p.category] ?? p.category }}</th>
+          @for (c of channels; track c.key) {
+            <td>
+              <input
+                type="checkbox"
+                [id]="p.category + '-' + c.key"
+                [checked]="p[c.key]"
+                (change)="toggle(p.category, c.key, $any($event.target).checked)"
+                [attr.aria-label]="c.label + ' for ' + (categoryLabels[p.category] ?? p.category)"
+              />
+            </td>
+          }
+        </tr>
+      }
+    </tbody>
+  </table>
+
+  <p class="note">Security messages — verification codes and password changes — are always sent and can't be switched off.</p>
+  <p class="status" role="status" aria-live="polite">{{ status() }}</p>
+} @else {
+  <p>Loading…</p>
+}

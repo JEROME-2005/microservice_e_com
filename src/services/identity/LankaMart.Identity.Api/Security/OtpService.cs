@@ -9,7 +9,8 @@ public interface IOtpSender
     Task SendAsync(string channel, string destination, string code);
 }
 
-/// <summary>DEV sender: writes the code to the log. Phase 2 replaces this with a Notification-service call (SMS/email).
+/// <summary>DEV fallback sender (<c>Otp:Sender=log</c>): writes the code to the log. The default in Development is now
+/// <see cref="NotificationOtpSender"/> (real email/SMS via the Notification service).
 /// ⚠ Never log OTPs in production — anyone with log access could take over accounts.</summary>
 public sealed class LogOtpSender(ILogger<LogOtpSender> log) : IOtpSender
 {
@@ -20,7 +21,8 @@ public sealed class LogOtpSender(ILogger<LogOtpSender> log) : IOtpSender
     }
 }
 
-public sealed class OtpService(IConnectionMultiplexer redis, IOtpSender sender, IHostEnvironment env)
+/// <summary>Scoped (Phase 2): it depends on the scoped <see cref="IOtpSender"/>, whose HTTP client is scoped.</summary>
+public sealed class OtpService(IConnectionMultiplexer redis, IOtpSender sender, IHostEnvironment env, ILogger<OtpService> log)
 {
     private IDatabase Db => redis.GetDatabase();
     public const int MaxAttempts = 5;
@@ -37,10 +39,20 @@ public sealed class OtpService(IConnectionMultiplexer redis, IOtpSender sender, 
         var key = $"otp:{userId}:{channel}";
         await Db.HashSetAsync(key, [new HashEntry("hash", Hash(code)), new HashEntry("attempts", 0)]);
         await Db.KeyExpireAsync(key, TimeSpan.FromMinutes(5));
-        await sender.SendAsync(channel, destination, code);
         if (env.IsDevelopment())
         {
-            await Db.StringSetAsync($"dev:otp:{destination}", code, TimeSpan.FromMinutes(5));
+            await Db.StringSetAsync($"dev:otp:{destination}", code, TimeSpan.FromMinutes(5));   // dev lookup works even if delivery fails
+        }
+        try
+        {
+            await sender.SendAsync(channel, destination, code);
+        }
+        catch (Exception ex)
+        {
+            // NON-FATAL: the account/verification flow continues (registration still answers 202). Lift the cooldown so the user
+            // can press "resend" immediately once the Notification service is back. The code itself is never logged.
+            await Db.KeyDeleteAsync($"otp:cd:{userId}:{channel}");
+            log.LogError(ex, "OTP delivery failed ({Channel})", channel);
         }
     }
 

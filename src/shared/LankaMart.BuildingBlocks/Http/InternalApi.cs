@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http.Resilience;
 
 namespace LankaMart.BuildingBlocks;
 
@@ -41,14 +42,20 @@ public static class InternalApiExtensions
         app.MapGroup(prefix).AllowAnonymous().AddEndpointFilter<InternalOnlyFilter>();
 
     /// <summary>Typed HttpClient for calling another service: base URL from "Services:{name}", internal key, retries, circuit breaker, timeouts.</summary>
-    public static IHttpClientBuilder AddInternalClient<TClient, TImpl>(this IServiceCollection s, IConfiguration c, string serviceName)
+    /// <param name="resilience">Optional tweaks to the standard pipeline, e.g. a short budget for a call a user is waiting on.</param>
+    public static IHttpClientBuilder AddInternalClient<TClient, TImpl>(this IServiceCollection s, IConfiguration c, string serviceName,
+        Action<HttpStandardResilienceOptions>? resilience = null)
         where TClient : class where TImpl : class, TClient
     {
         s.AddTransient<InternalKeyHandler>();
         var builder = s.AddHttpClient<TClient, TImpl>(http =>
                 http.BaseAddress = new Uri(c[$"Services:{serviceName}"] ?? throw new InvalidOperationException($"Missing 'Services:{serviceName}' config")))
             .AddHttpMessageHandler<InternalKeyHandler>();
-        builder.AddStandardResilienceHandler();   // Polly v8: retry (exp. backoff + jitter) + circuit breaker + timeouts
+        var pipeline = builder.AddStandardResilienceHandler();   // Polly v8: retry (exp. backoff + jitter) + circuit breaker + timeouts
+        if (resilience is not null)
+        {
+            pipeline.Configure(resilience);
+        }
         return builder;
     }
 }

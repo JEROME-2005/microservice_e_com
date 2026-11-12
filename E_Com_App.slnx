@@ -19,12 +19,14 @@
     <Project Path="src/services/users/LankaMart.Users.Api/LankaMart.Users.Api.csproj" />
     <Project Path="src/services/catalog/LankaMart.Catalog.Api/LankaMart.Catalog.Api.csproj" />
     <Project Path="src/services/inventory/LankaMart.Inventory.Api/LankaMart.Inventory.Api.csproj" />
+    <Project Path="src/services/notifications/LankaMart.Notifications.Api/LankaMart.Notifications.Api.csproj" />
     <Project Path="src/services/orders/LankaMart.Orders.Api/LankaMart.Orders.Api.csproj" />
     <Project Path="src/services/payments/LankaMart.Payments.Api/LankaMart.Payments.Api.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/LankaMart.BuildingBlocks.Tests/LankaMart.BuildingBlocks.Tests.csproj" />
     <Project Path="tests/LankaMart.Orders.Tests/LankaMart.Orders.Tests.csproj" />
+    <Project Path="tests/LankaMart.Notifications.Tests/LankaMart.Notifications.Tests.csproj" />
   </Folder>
   <Folder Name="/solution-items/">
     <File Path=".editorconfig" />

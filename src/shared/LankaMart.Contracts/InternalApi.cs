@@ -16,3 +16,10 @@ public sealed record ReserveStockResponse(bool Success, IReadOnlyList<Guid> Unav
 // Payments: POST /api/v1/internal/payments/intent
 public sealed record CreatePaymentIntentRequest(Guid OrderId, Guid CustomerId, long AmountCents, string Currency);
 public sealed record CreatePaymentIntentResponse(Guid PaymentId, string Gateway);
+
+// Notifications: POST /api/v1/internal/notifications/otp — a SYNCHRONOUS call on purpose: an OTP must never sit on the event bus,
+// in outbox tables or in broker logs, and the user is waiting for it. Channel: "email" | "phone". The code is never stored.
+public sealed record SendOtpRequest(string Channel, string Destination, string Code, string Language)
+{
+    public override string ToString() => $"SendOtpRequest({Channel}, redacted)";    // never let the code reach a log line
+}

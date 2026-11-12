@@ -1,0 +1,18 @@
+@if (error(); as message) {
+  <h1>Order</h1>
+  <p role="alert">{{ message }}</p>
+  <a routerLink="/">Go to the home page</a>
+} @else if (tracking(); as t) {
+  <h1>Order {{ t.orderNumber }}</h1>
+  <p>Status: <strong>{{ t.status }}</strong></p>
+  <h2>Timeline</h2>
+  <ol>
+    @for (e of t.timeline; track e.at) {
+      <li>
+        <time [attr.datetime]="e.at">{{ e.at | date: 'MMM d, h:mm a' }}</time> — {{ e.status }}@if (e.note) {: {{ e.note }}}
+      </li>
+    }
+  </ol>
+} @else {
+  <p>Loading order…</p>
+}

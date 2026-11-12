@@ -17,6 +17,7 @@
     <ProjectReference Include="..\src\services\inventory\LankaMart.Inventory.Api\LankaMart.Inventory.Api.csproj" />
     <ProjectReference Include="..\src\services\orders\LankaMart.Orders.Api\LankaMart.Orders.Api.csproj" />
     <ProjectReference Include="..\src\services\payments\LankaMart.Payments.Api\LankaMart.Payments.Api.csproj" />
+    <ProjectReference Include="..\src\services\notifications\LankaMart.Notifications.Api\LankaMart.Notifications.Api.csproj" />
   </ItemGroup>
 
   <ItemGroup>

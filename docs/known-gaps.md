@@ -6,7 +6,7 @@ Started from the Phase 1 register (build guide §1.22); updated as Phase 2 close
 | # | Gap | Risk today | Status / fixed in |
 |---|---|---|---|
 | 1 | Publish-after-commit (dual write) everywhere | lost event after a crash at the wrong millisecond | ✅ **closed** in Phase 2 — transactional outbox + inbox in every service ([ADR-0020](adr/0020-outbox-inbox.md)) |
-| 2 | OTPs are logged, not sent | dev-only | open → Phase 2 Sprint 3 (Notification service) |
+| 2 | OTPs are logged, not sent | dev-only | ✅ **closed** in Phase 2 — Notification service sends them (email via SMTP, SMS adapter) ([ADR-0021](adr/0021-notification-service.md)) |
 | 3 | Shared internal API key | one leaked key opens all internal APIs | open → Phase 6 (mTLS / mesh) |
 | 4 | Refresh token in `localStorage` (web) | XSS could steal it | open → Phase 6 (httpOnly cookie) |
 | 5 | Mock webhook jobs held in memory | lost on restart (mock only) | n/a (real gateways retry) |
@@ -19,3 +19,4 @@ Started from the Phase 1 register (build guide §1.22); updated as Phase 2 close
 | 12 | Auto-migrate on startup | races with multiple replicas | ✅ **closed** in Phase 2 — `--migrate-only` jobs, auto-migrate only in Development ([ADR-0019](adr/0019-database-per-service.md)) |
 | 13 | Gateway cannot revoke by user (only by `jti`) | suspended user keeps token ≤ 15 min | open → Phase 6 |
 | 14 | Outbox delivery lag is only checked by hand (`SELECT now() - min(enqueue_time) FROM <schema>.outbox_message`) | a stuck broker/delivery service goes unnoticed until someone looks | new → Phase 6 (alerts) |
+| 15 | Staff notifications (KYC queue, dead-letter alerts) missing | the Seller Manager must open the queue; nobody is paged about dead letters | new → Phase 3 (admin panel, role-based recipients) |

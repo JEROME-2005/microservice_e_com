@@ -12,8 +12,10 @@
       "src/services/inventory/LankaMart.Inventory.Api/LankaMart.Inventory.Api.csproj",
       "src/services/orders/LankaMart.Orders.Api/LankaMart.Orders.Api.csproj",
       "src/services/payments/LankaMart.Payments.Api/LankaMart.Payments.Api.csproj",
+      "src/services/notifications/LankaMart.Notifications.Api/LankaMart.Notifications.Api.csproj",
       "tests/LankaMart.BuildingBlocks.Tests/LankaMart.BuildingBlocks.Tests.csproj",
-      "tests/LankaMart.Orders.Tests/LankaMart.Orders.Tests.csproj"
+      "tests/LankaMart.Orders.Tests/LankaMart.Orders.Tests.csproj",
+      "tests/LankaMart.Notifications.Tests/LankaMart.Notifications.Tests.csproj"
     ]
   }
 }

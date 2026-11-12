@@ -1,0 +1,20 @@
+<p class="lead">Storefront placeholder — the backend is live behind the gateway; storefront pages come next.</p>
+
+<section aria-labelledby="categories-heading">
+  <h2 id="categories-heading">Categories</h2>
+
+  @if (error(); as message) {
+    <p role="alert">{{ message }}</p>
+    <button type="button" (click)="loadCategories()">Retry loading categories</button>
+  } @else if (categories(); as list) {
+    <ul>
+      @for (c of list; track c.id) {
+        <li>{{ c.name }}</li>
+      } @empty {
+        <li>No categories yet.</li>
+      }
+    </ul>
+  } @else {
+    <p>Loading categories…</p>
+  }
+</section>

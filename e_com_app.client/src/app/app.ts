@@ -1,35 +1,21 @@
-import { HttpClient } from '@angular/common/http';
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
+import { AuthService } from './core/auth.service';
 
-/** Public category list from the Catalog service (GET /api/v1/categories through the gateway). */
-export interface Category {
-  id: string;
-  slug: string;
-  name: string;
-}
-
+/** App shell: header (brand, notification bell, account links) + routed page. */
 @Component({
   selector: 'app-root',
   standalone: false,
   styleUrl: './app.css',
   templateUrl: './app.html',
 })
-export class App implements OnInit {
+export class App {
   protected readonly title = signal('LankaMart');
-  protected readonly categories = signal<Category[] | null>(null);
-  protected readonly error = signal<string | null>(null);
+  protected readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
 
-  constructor(private http: HttpClient) {}
-
-  ngOnInit() {
-    this.loadCategories();
-  }
-
-  loadCategories() {
-    this.error.set(null);
-    this.http.get<Category[]>('/api/v1/categories').subscribe({
-      next: (result) => this.categories.set(result),
-      error: () => this.error.set('Could not reach the LankaMart gateway. Start the backend with the Aspire AppHost, then try again.'),
-    });
+  signOut(): void {
+    this.auth.signOut();
+    this.router.navigateByUrl('/');
   }
 }

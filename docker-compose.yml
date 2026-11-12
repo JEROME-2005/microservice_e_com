@@ -52,6 +52,14 @@ services:
       timeout: 5s
       retries: 20
 
+  mailpit:                                    # Phase 2: fake SMTP server + web inbox; the Notification service sends every email here
+    image: axllent/mailpit:latest             # dev only; pin a version before staging
+    container_name: lm-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"     # SMTP — the Notification service sends here
+      - "8025:8025"     # web inbox — http://localhost:8025
+
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: lm-pgadmin
